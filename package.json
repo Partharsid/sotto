@@ -1,0 +1,92 @@
+{
+  "name": "sotto",
+  "productName": "Sotto",
+  "version": "0.1.0",
+  "description": "A quiet, instant copilot for live conversations: listens, understands the question, and whispers an answer from your CV.",
+  "author": "Partharsid",
+  "license": "MIT",
+  "homepage": "https://github.com/Partharsid/sotto",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Partharsid/sotto.git"
+  },
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "concurrently -k -n ui,app \"vite\" \"tsc -p tsconfig.main.json --watch --preserveWatchOutput\" \"wait-on http://localhost:3000 dist/main/main.js && cross-env SOTTO_DEV=1 electron .\"",
+    "build": "tsc -p tsconfig.main.json && vite build",
+    "start": "electron .",
+    "dist": "pnpm build && electron-builder",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.main.json",
+    "test": "node --test --import tsx \"tests/*.test.ts\""
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "mammoth": "^1.13.0",
+    "pdf-parse": "1.1.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.5.5",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.0.1",
+    "cross-env": "^7.0.3",
+    "electron": "^32.0.2",
+    "electron-builder": "^25.0.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.5",
+    "wait-on": "^8.0.0",
+    "zustand": "^4.5.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
+  },
+  "build": {
+    "appId": "dev.sotto.app",
+    "productName": "Sotto",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "assets/icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "stt-sidecar/server.py",
+        "to": "stt-sidecar/server.py"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Sotto-Setup-${version}.exe",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "shortcutName": "Sotto"
+    },
+    "publish": null
+  }
+}

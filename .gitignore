@@ -1,0 +1,22 @@
+# dependencies & build output
+node_modules/
+dist/
+release/
+
+# secrets — never commit keys
+.env
+.env.*
+!.env.example
+
+# the on-device speech engine's Python environment (created by the app / `Set up`)
+stt-sidecar/.venv/
+__pycache__/
+
+# local tooling & scratch
+scripts/_*
+*.log
+.DS_Store
+Thumbs.db
+
+# test screenshots
+screenshots/
