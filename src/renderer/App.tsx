@@ -3,7 +3,7 @@ import { call } from './api';
 import { isQuestion } from './brain';
 import { useAnswers, useListen, type Card, type Line } from './hooks';
 import { useStore } from './store';
-import { Eye, EyeOff, Logo, Pin, Send, Seg, Toasts, toast } from './ui';
+import { Dock as DockIcon, Eye, EyeOff, Logo, Pin, Send, Seg, Toasts, toast } from './ui';
 import { fetchMoon, Listen, Notes, Settings, type Moon } from './views';
 
 type Tab = 'listen' | 'notes' | 'settings';
@@ -15,7 +15,9 @@ export default function App() {
   const [text, setText] = useState('');
   const [moon, setMoon] = useState<Moon | null>(null);
   const [meetingApp, setMeetingApp] = useState<string | null>(null);
-  const { cards, ask } = useAnswers();
+  const { cards, ask, clear } = useAnswers();
+  const cardsRef = useRef<Card[]>([]);
+  cardsRef.current = cards;
   const ui = useStore((s) => s.ui);
   const meeting = useStore((s) => s.meeting);
   const source = useStore((s) => s.listen.source);
@@ -82,12 +84,36 @@ export default function App() {
     catch (e) { toast((e as Error).message); refreshMoon(); }
   }
 
+  // -- the answer dock: share state with it, obey its buttons --
+  const dockOn = useStore((s) => s.ui.dock);
+  useEffect(() => {
+    const d = window.sotto?.dock;
+    if (!d) return;
+    const t = setTimeout(() => d.publish({ on: listen.on, auto: ui.auto, partial: listen.partial, cards: cards.map(({ id, q, a, state, model, ms, kind, tag }) => ({ id, q, a, state, model, ms, kind, tag })), lastLine: last ? last.text : '' }), 60);
+    return () => clearTimeout(t);
+  }, [listen.on, listen.partial, cards, ui.auto, last]);
+  useEffect(() => { if (listen.on && dockOn) void window.sotto?.dock.ctl('show'); }, [listen.on, dockOn]);
+
   const toggle = () => {
     if (listen.on) { startedByCall.current = false; return listen.stop(); }
     if (onDevice && moon && !moon.installed) { toast('Set up on-device listening first'); return; }
     void listen.start();
   };
+  const toggleRef = useRef(toggle);
+  toggleRef.current = toggle;
   const submit = () => { const q = text.trim(); if (q) { asked.current = q; void ask(q); setText(''); } };
+
+  useEffect(() => {
+    const d = window.sotto?.dock;
+    if (!d) return;
+    return d.onCmd((c) => {
+      if (c.t === 'answer') answerLast();
+      else if (c.t === 'clear') clear();
+      else if (c.t === 'auto') patch('ui', { auto: !useStore.getState().ui.auto });
+      else if (c.t === 'listen') toggleRef.current();
+      else if (c.t === 'revise') { const card = cardsRef.current.find((x) => x.id === c.id); if (card) void ask(card.q, { revise: { answer: card.a, how: c.how, label: c.label } }); }
+    });
+  }, [answerLast, ask, clear, patch]);
 
   const revise = (c: Card, how: string, label: string) => void ask(c.q, { revise: { answer: c.a, how, label } });
   const summarize = () => {
@@ -101,6 +127,7 @@ export default function App() {
       <header className="top">
         <div className="brand"><Logo />Sotto</div>
         <span className="spacer" />
+        <button className={`icon-btn ${ui.dock ? 'on' : ''}`} onClick={() => { patch('ui', { dock: !ui.dock }); void window.sotto?.dock.ctl(ui.dock ? 'hide' : 'show'); }} title={ui.dock ? 'Answer dock is on (Ctrl+Alt+D to hide)' : 'Show the answer dock'} aria-label="Answer dock" aria-pressed={ui.dock}><DockIcon /></button>
         <button className={`icon-btn ${ui.pin ? 'on' : ''}`} onClick={() => patch('ui', { pin: !ui.pin })} title={ui.pin ? 'Stop keeping on top' : 'Keep on top'} aria-label="Keep on top" aria-pressed={ui.pin}><Pin /></button>
         <button className={`icon-btn ${ui.private ? 'on' : ''}`} onClick={() => patch('ui', { private: !ui.private })} title={ui.private ? 'Hidden from screen sharing' : 'Visible to screen sharing'} aria-label="Hide from screen sharing" aria-pressed={ui.private}>{ui.private ? <EyeOff /> : <Eye />}</button>
       </header>

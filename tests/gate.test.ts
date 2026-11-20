@@ -8,7 +8,7 @@ const peak = (f: Int16Array) => f.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
 test('gate: sends silence for steady room noise and passes speech through', () => {
     const out: Int16Array[] = [];
     const g = gated((f) => out.push(f), MIC_GATE);
-    for (let i = 0; i < 100; i++) g(frame(0.01)); // hiss
+    for (let i = 0; i < 100; i++) g(frame(0.003)); // hiss
     assert.ok(out.every((f) => peak(f) === 0));
     out.length = 0;
     for (let i = 0; i < 10; i++) g(frame(0.2)); // speech
@@ -17,18 +17,18 @@ test('gate: sends silence for steady room noise and passes speech through', () =
 test('gate: ignores a single key click but keeps the frame count one-to-one', () => {
     const out: Int16Array[] = [];
     const g = gated((f) => out.push(f), MIC_GATE);
-    for (let i = 0; i < 20; i++) g(frame(0.01));
+    for (let i = 0; i < 20; i++) g(frame(0.003));
     g(frame(0.5));
-    for (let i = 0; i < 20; i++) g(frame(0.01));
+    for (let i = 0; i < 20; i++) g(frame(0.003));
     assert.equal(out.length, 41);
     assert.ok(out.every((f) => peak(f) === 0));
   });
 test('gate: keeps the lead-in and the tail of a sentence', () => {
     const out: Int16Array[] = [];
     const g = gated((f) => out.push(f), MIC_GATE);
-    for (let i = 0; i < 20; i++) g(frame(0.01));
+    for (let i = 0; i < 20; i++) g(frame(0.003));
     for (let i = 0; i < 10; i++) g(frame(0.2));
-    for (let i = 0; i < 5; i++) g(frame(0.01)); // short pause stays open
+    for (let i = 0; i < 5; i++) g(frame(0.003)); // short pause stays open
     assert.ok(out.slice(-5).every((f) => peak(f) > 0));
   });
 

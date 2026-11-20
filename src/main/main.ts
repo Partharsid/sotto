@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, desktopCapturer, globalShortcut, ipcMain, nativeTheme, screen, session, shell } from 'electron';
+import { app, BrowserWindow, clipboard, Menu, desktopCapturer, globalShortcut, ipcMain, nativeTheme, screen, session, shell } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { micApps, stopCaptureWatcher, watchMeetings, type Meeting } from './meeting';
@@ -30,12 +30,12 @@ app.on('second-instance', () => { if (win) { win.show(); win.focus(); } });
 // Content-Security-Policy: only this app's files, the local API/engine, and the one cloud streaming host.
 const CSP = [
   "default-src 'self'",
-  `script-src 'self'${DEV_URL ? " 'unsafe-inline'" : ''}`,
+  `script-src 'self' 'wasm-unsafe-eval'${DEV_URL ? " 'unsafe-inline'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self' data:",
   "worker-src 'self' blob:",
-  "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* wss://api.deepgram.com" + (DEV_URL ? ' http://localhost:* ws://localhost:*' : ''),
+  "connect-src 'self' data: http://127.0.0.1:* ws://127.0.0.1:* wss://api.deepgram.com" + (DEV_URL ? ' http://localhost:* ws://localhost:*' : ''),
 ].join('; ');
 
 const webPrefs = { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false };
@@ -62,10 +62,50 @@ function createWindow() {
   });
   win.setContentProtection(privateMode); // hidden from screen capture from the very first frame, not after the page loads
   win.once('ready-to-show', () => win?.show());
-  win.on('closed', () => { win = null; });
+  win.on('closed', () => { win = null; if (dock && !dock.isDestroyed()) dock.close(); });
   lockDown(win);
   load(win);
 }
+
+
+// ── The dock: a translucent answer strip pinned to the screen edge, never captured by screen sharing ──────
+let dock: BrowserWindow | null = null;
+let dockState: unknown = null;
+const dockView = { collapsed: false, through: false, opacity: 0.95 };
+const DOCK_W = 400, TAB_W = 44, TAB_H = 150;
+
+function dockBounds() {
+  const wa = screen.getPrimaryDisplay().workArea;
+  if (dockView.collapsed) return { width: TAB_W, height: TAB_H, x: wa.x + wa.width - TAB_W, y: wa.y + Math.round(wa.height / 2 - TAB_H / 2) };
+  const h = Math.min(wa.height - 24, 760);
+  return { width: DOCK_W, height: h, x: wa.x + wa.width - DOCK_W - 10, y: wa.y + 12 };
+}
+const sendDockView = () => dock?.webContents.send('sotto:dock-view', { ...dockView });
+
+function applyDock() {
+  if (!dock || dock.isDestroyed()) return;
+  dock.setBounds(dockBounds());
+  dock.setOpacity(dockView.opacity);
+  dock.setIgnoreMouseEvents(dockView.through && !dockView.collapsed, { forward: true });
+  sendDockView();
+}
+
+function showDock() {
+  if (dock && !dock.isDestroyed()) { dock.showInactive(); return; }
+  dock = new BrowserWindow({
+    ...dockBounds(), frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, hasShadow: false,
+    focusable: false, show: false, alwaysOnTop: true, webPreferences: webPrefs,
+  });
+  dock.setAlwaysOnTop(true, 'screen-saver');
+  dock.setContentProtection(true); // the other people on the call must never see it
+  dock.setOpacity(dockView.opacity);
+  lockDown(dock);
+  dock.once('ready-to-show', () => dock?.showInactive());
+  dock.on('closed', () => { dock = null; });
+  load(dock, 'dock');
+}
+
+function toggleDock() { if (dock && !dock.isDestroyed() && dock.isVisible()) dock.hide(); else showDock(); }
 
 // ── "A call was detected — want help?" ───────────────────────────────────────────────────────
 let popupTimer: ReturnType<typeof setTimeout> | undefined;
@@ -119,6 +159,24 @@ function wireIpc() {
   ipcMain.handle('sotto:private', (_e, on: boolean) => { privateMode = !!on; win?.setContentProtection(privateMode); win?.setSkipTaskbar(privateMode); });
   ipcMain.handle('sotto:pin', (_e, on: boolean) => { win?.setAlwaysOnTop(!!on, 'screen-saver'); });
 
+  // Dock: the main window publishes answers/transcript, the dock draws them and sends button presses back.
+  ipcMain.on('sotto:dock-state', (_e, st) => { dockState = st; dock?.webContents.send('sotto:dock-state', st); });
+  ipcMain.on('sotto:dock-ready', () => { if (dockState) dock?.webContents.send('sotto:dock-state', dockState); sendDockView(); });
+  ipcMain.on('sotto:dock-cmd', (_e, c) => win?.webContents.send('sotto:dock-cmd', c));
+  ipcMain.handle('sotto:copy', (_e, t: string) => { clipboard.writeText(String(t).slice(0, 20000)); });
+  ipcMain.handle('sotto:dock-ctl', (_e, action: string, v?: number) => {
+    if (action === 'show') { showDock(); return; }
+    if (action === 'hide') { dock?.hide(); return; }
+    if (action === 'toggle') { toggleDock(); return; }
+    if (action === 'collapse') dockView.collapsed = true;
+    else if (action === 'expand') dockView.collapsed = false;
+    else if (action === 'toggle-collapse') dockView.collapsed = !dockView.collapsed;
+    else if (action === 'through') dockView.through = !dockView.through;
+    else if (action === 'opacity') dockView.opacity = Math.min(1, Math.max(0.3, typeof v === 'number' ? v : dockView.opacity));
+    else if (action === 'open-main') { if (win) { win.show(); win.focus(); } return; }
+    applyDock();
+  });
+
   ipcMain.on('sotto:meeting-config', (_e, c: typeof meetingCfg) => { meetingCfg = { mode: c.mode, ignore: c.ignore ?? [] }; dbg(`config: ${c.mode}`); });
   ipcMain.handle('sotto:meeting-info', () => meeting);
   ipcMain.handle('sotto:mic-apps', () => micApps());
@@ -154,7 +212,12 @@ app.whenReady().then(async () => {
   createWindow();
 
   // Panic key: hide / show the window instantly. Answer key: answer whatever was just asked, without touching the mouse.
-  globalShortcut.register('CommandOrControl+Shift+H', () => { if (!win) return; if (win.isVisible()) win.hide(); else { win.show(); win.focus(); } });
+  globalShortcut.register('CommandOrControl+Shift+H', () => { if (!win) return; if (win.isVisible()) { win.hide(); dock?.hide(); } else { win.show(); win.focus(); } });
+  globalShortcut.register('CommandOrControl+Alt+D', toggleDock); // show / hide the answer dock
+  globalShortcut.register('CommandOrControl+Alt+E', () => { dockView.collapsed = !dockView.collapsed; if (!dock || dock.isDestroyed()) showDock(); else applyDock(); }); // slide it to the edge / back
+  globalShortcut.register('CommandOrControl+Alt+T', () => { dockView.through = !dockView.through; applyDock(); }); // click-through
+  globalShortcut.register('CommandOrControl+Alt+Up', () => { dockView.opacity = Math.min(1, dockView.opacity + 0.1); applyDock(); });
+  globalShortcut.register('CommandOrControl+Alt+Down', () => { dockView.opacity = Math.max(0.3, dockView.opacity - 0.1); applyDock(); });
   globalShortcut.register('CommandOrControl+Shift+A', () => win?.webContents.send('sotto:answer-last'));
 
   watchMeetings(onMeetingStart, onMeetingEnd);

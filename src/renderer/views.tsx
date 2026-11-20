@@ -242,6 +242,55 @@ function MicNow() {
   return <div className="micnow"><i className={apps.length ? 'live' : ''} />{apps.length ? `Using your microphone now: ${apps.join(', ')}` : 'No app is using your microphone right now'}</div>;
 }
 
+interface ModelOpt { id: string; name: string; free?: boolean }
+
+/** Pick the answer model(s): fetched from the provider's own API; several picks race and the first answer wins. */
+function ModelPicker() {
+  const { ai, patch } = useStore();
+  const [list, setList] = useState<ModelOpt[] | null>(null);
+  const [q, setQ] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const chosen = ai.models.split(',').map((m) => m.trim()).filter(Boolean);
+  const set = (ids: string[]) => patch('ai', { models: ids.join(', ') });
+  const toggle = (id: string) => set(chosen.includes(id) ? chosen.filter((m) => m !== id) : [...chosen, id]);
+  useEffect(() => { setList(null); setErr(''); }, [ai.kind]);
+
+  const load = async () => {
+    setBusy(true); setErr('');
+    try {
+      const key = ai.keys[ai.kind];
+      const r = await call<{ models: ModelOpt[] }>('/api/ai/models', { provider: key ? { kind: ai.kind, apiKey: key, baseUrl: ai.kind === 'custom' ? ai.baseUrl : undefined } : undefined });
+      setList(r.models);
+    } catch (e) { setErr((e as Error).message); }
+    setBusy(false);
+  };
+  const shown = (list ?? []).filter((m) => !q || (m.id + m.name).toLowerCase().includes(q.toLowerCase())).slice(0, 80);
+
+  return (
+    <Field label="Answer model" hint={ai.kind === 'custom' ? 'Pick from your provider, or type a model name.' : 'Leave empty for the fastest defaults. Tick several and they race: the first answer wins.'}>
+      <div className="row" style={{ gap: 8 }}>
+        <input className="input" placeholder={ai.kind === 'custom' ? 'e.g. llama-3.1-8b-instant' : 'Default'} value={ai.models} onChange={(e) => patch('ai', { models: e.target.value })} />
+        <button className="btn" onClick={load} disabled={busy}>{busy ? 'Loading…' : list ? 'Reload' : 'Load models'}</button>
+      </div>
+      {err && <small style={{ color: 'var(--bad, #c0392b)' }}>{err}</small>}
+      {list && (
+        <div className="models">
+          <input className="input" placeholder={`Search ${list.length} models`} value={q} onChange={(e) => setQ(e.target.value)} />
+          {shown.map((m) => (
+            <label key={m.id} className="model">
+              <input type="checkbox" checked={chosen.includes(m.id)} onChange={() => toggle(m.id)} />
+              <span>{m.id}</span>
+              {m.free && <span className="chip ok">free</span>}
+            </label>
+          ))}
+          {!shown.length && <small>No match.</small>}
+        </div>
+      )}
+    </Field>
+  );
+}
+
 export function Settings({ moon, onInstall }: { moon: Moon | null; onInstall: () => void }) {
   const { ai, listen, ui, meeting, patch, setKey, setListenKey } = useStore();
   const [link, hint] = KEY_LINKS[ai.kind];
@@ -257,9 +306,7 @@ export function Settings({ moon, onInstall }: { moon: Moon | null; onInstall: ()
         <Field label="API key" hint={<>{hint}{link && <> · <a href={link} target="_blank" rel="noreferrer">Get a key</a></>}</>}>
           <Secret value={ai.keys[ai.kind]} onChange={(v) => setKey(ai.kind, v)} placeholder="Paste your key" />
         </Field>
-        <Field label={ai.kind === 'custom' ? 'Model' : 'Models (optional)'} hint={ai.kind === 'custom' ? undefined : 'Leave empty for the fastest defaults. Several, separated by commas, race each other and the first answer wins.'}>
-          <input className="input" placeholder={ai.kind === 'custom' ? 'e.g. llama-3.1-8b-instant' : 'Default'} value={ai.models} onChange={(e) => patch('ai', { models: e.target.value })} />
-        </Field>
+        <ModelPicker />
       </section>
 
       <section className="sec">

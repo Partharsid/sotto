@@ -8,7 +8,7 @@ export type Source = 'both' | 'system' | 'mic';
 export interface Settings {
   ai: { kind: AiKind; keys: Record<AiKind, string>; models: string; baseUrl: string };
   listen: { engine: Engine; size: 'tiny' | 'small'; source: Source; /** '' = system default */ micId?: string; keys: { deepgram: string; whisper: string }; whisperBase: string };
-  ui: { private: boolean; pin: boolean; auto: boolean; length: 'short' | 'long' };
+  ui: { private: boolean; pin: boolean; auto: boolean; length: 'short' | 'long'; dock: boolean };
   /** ask = pop up when a call starts; auto = just start helping; off = never. `ignore` = apps the user said never for. */
   meeting: { mode: 'ask' | 'auto' | 'off'; ignore: string[] };
 }
@@ -32,7 +32,7 @@ export const useStore = create<State>()(
     (set) => ({
       ai: { kind: 'openrouter', keys: { openrouter: '', gemini: '', custom: '' }, models: '', baseUrl: '' },
       listen: { engine: 'local', size: 'small', source: 'both', micId: '', keys: { deepgram: '', whisper: '' }, whisperBase: 'https://api.groq.com/openai/v1' },
-      ui: { private: true, pin: false, auto: true, length: 'short' },
+      ui: { private: true, pin: false, auto: true, length: 'short', dock: true },
       meeting: { mode: 'ask', ignore: [] },
       docs: [],
       patch: (section, p) => set((s) => ({ [section]: { ...s[section], ...p } }) as Partial<State>),
@@ -42,6 +42,6 @@ export const useStore = create<State>()(
       toggleDoc: (id) => set((s) => ({ docs: s.docs.map((d) => (d.id === id ? { ...d, on: !d.on } : d)) })),
       removeDoc: (id) => set((s) => ({ docs: s.docs.filter((d) => d.id !== id) })),
     }),
-    { name: 'sotto', version: 3, migrate: (p: any) => ({ ...p, meeting: p?.meeting ?? { mode: 'ask', ignore: [] }, listen: p?.listen?.engine === 'moonshine' ? { ...p.listen, engine: 'local' } : p?.listen }) },
+    { name: 'sotto', version: 3, migrate: (p: any) => ({ ...p, meeting: p?.meeting ?? { mode: 'ask', ignore: [] }, ui: { dock: true, ...p?.ui }, listen: p?.listen?.engine === 'moonshine' ? { ...p.listen, engine: 'local' } : p?.listen }) },
   ),
 );

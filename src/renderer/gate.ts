@@ -14,8 +14,9 @@ export interface GateOptions {
   ratio: number;
 }
 
-export const MIC_GATE: GateOptions = { min: 0.018, ratio: 3.2 };
-export const SYSTEM_GATE: GateOptions = { min: 0.004, ratio: 3 };
+// After RNNoise the room is ~0.0005 and speech 0.01+, so these sit well clear of both (the plain-mic fallback learns its floor on its own).
+export const MIC_GATE: GateOptions = { min: 0.006, ratio: 4 };
+export const SYSTEM_GATE: GateOptions = { min: 0.003, ratio: 4 };
 
 const HANG_FRAMES = 12;  // keep open 600 ms after the last loud frame, so word endings and short pauses survive
 const PRE_FRAMES = 6;    // 300 ms of lead-in, so the first syllable is not clipped

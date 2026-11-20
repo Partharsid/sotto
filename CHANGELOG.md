@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6 – 2026-11-21
+
+- New: pick your answer model. Settings > Answers > Load models fetches the list from your provider (OpenRouter, Gemini or any OpenAI-compatible API), with search and a free tag. Tick several and they race.
+- New: strong background-noise removal. Your voice goes through a small neural denoiser (GTCRN, with RNNoise as backup; open source, about 200 KB) before the speech engine, so fans, hiss, keyboards and loud rooms are removed instead of transcribed. In a deliberately brutal test (loud noise, music and other voices) the background dropped about 20x in level.
+- New: the answer dock. A translucent strip pinned to the screen edge shows live words and answers (Auto, Clear, Answer, Shorter/More/Example, Copy). It never takes focus and is invisible to screen sharing. Ctrl+Alt+D hides it, Ctrl+Alt+E tucks it into a small tab, Ctrl+Alt+Up/Down fades it, Ctrl+Alt+T makes it click-through.
+
 ## 0.1.5 — 2026-11-20
 
 - New default on-device speech engine: whisper.cpp (the most-starred open-source speech runtime that runs on a plain CPU). No Python needed; about 80 MB downloaded once from Settings > Listening > Set up. Text appears about a second after you pause.

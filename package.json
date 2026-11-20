@@ -1,7 +1,7 @@
 {
   "name": "sotto",
   "productName": "Sotto",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "A quiet, instant copilot for live conversations: listens, understands the question, and whispers an answer from your CV.",
   "author": "Partharsid",
   "license": "MIT",
@@ -20,6 +20,7 @@
     "test": "node --test --import tsx \"tests/*.test.ts\""
   },
   "dependencies": {
+    "@sapphi-red/web-noise-suppressor": "^0.4.1",
     "express": "^4.21.0",
     "mammoth": "^1.13.0",
     "pdf-parse": "1.1.1"

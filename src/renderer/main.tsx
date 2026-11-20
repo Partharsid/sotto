@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import Popup from './Popup';
+import Dock from './Dock';
 import { useStore } from './store';
 import './styles.css';
 
@@ -10,4 +11,5 @@ if (import.meta.env.DEV) (window as unknown as { __store: typeof useStore }).__s
 
 // The same bundle also draws the small "call detected" window (#popup)
 const isPopup = location.hash === '#popup';
-createRoot(document.getElementById('root')!).render(<StrictMode>{isPopup ? <Popup /> : <App />}</StrictMode>);
+const isDock = location.hash === '#dock';
+createRoot(document.getElementById('root')!).render(<StrictMode>{isPopup ? <Popup /> : isDock ? <Dock /> : <App />}</StrictMode>);

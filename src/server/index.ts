@@ -1,6 +1,6 @@
 import express from 'express';
 import { createServer } from 'http';
-import { race, envSpec, type ProviderSpec } from './ai';
+import { race, envSpec, listModels, type ProviderSpec } from './ai';
 import { transcribe, hasWhisper, type WhisperSpec } from './stt';
 import { parseDocument } from './documents';
 import * as moonshine from './moonshine';
@@ -55,6 +55,15 @@ export function createApp() {
       if (!res.headersSent) res.status(502).json({ message: (e as Error).message });
       else res.end();
     }
+  });
+
+  // ── The models a provider offers (for the picker in Settings)
+  app.post('/api/ai/models', async (req, res) => {
+    const { provider } = req.body ?? {};
+    const spec: ProviderSpec | null = provider?.apiKey && KINDS.has(provider.kind) ? provider : envSpec();
+    if (!spec) { res.status(503).json({ message: 'Paste your API key first.' }); return; }
+    try { res.json({ models: await listModels(spec) }); }
+    catch (e) { res.status(502).json({ message: `Could not load models — ${(e as Error).message}` }); }
   });
 
   // ── Cloud speech-to-text for engines that are not live-streamed (Whisper-compatible). Body: 16 kHz mono PCM.

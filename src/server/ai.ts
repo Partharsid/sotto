@@ -123,3 +123,22 @@ export function race(spec: ProviderSpec, body: object, signal: AbortSignal): Pro
     });
   });
 }
+
+export interface ModelInfo { id: string; name: string; free?: boolean }
+
+/** The models this provider/key can use (asked of the provider itself, so the list is never stale). */
+export async function listModels(spec: ProviderSpec): Promise<ModelInfo[]> {
+  const auth = { Authorization: `Bearer ${spec.apiKey}` };
+  let url: string;
+  if (spec.kind === 'openrouter') url = 'https://openrouter.ai/api/v1/models';
+  else if (spec.kind === 'gemini') url = 'https://generativelanguage.googleapis.com/v1beta/openai/models';
+  else if (spec.baseUrl) url = spec.baseUrl.replace(/\/+$/, '') + '/models';
+  else throw new Error('Enter the Base URL first');
+  const res = await fetch(url, { headers: auth, signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(`${res.status}: ${(await res.text().catch(() => '')).slice(0, 120)}`);
+  const body = (await res.json()) as { data?: { id: string; name?: string; pricing?: { prompt?: string; completion?: string }; architecture?: { output_modalities?: string[] } }[] };
+  return (body.data ?? [])
+    .filter((m) => m.id && (!m.architecture?.output_modalities || m.architecture.output_modalities.includes('text')) && !/embed|whisper|tts|image|moderation|guard/i.test(m.id))
+    .map((m) => ({ id: m.id.replace(/^models\//, ''), name: m.name || m.id.replace(/^models\//, ''), free: m.pricing ? Number(m.pricing.prompt) === 0 && Number(m.pricing.completion) === 0 : undefined }))
+    .sort((a, b) => Number(!!b.free) - Number(!!a.free) || a.id.localeCompare(b.id));
+}

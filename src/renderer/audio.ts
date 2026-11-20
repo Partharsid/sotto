@@ -74,18 +74,77 @@ export async function openStream(who: Who, micId = '', notify: (msg: string) => 
   return s;
 }
 
-/** Calls onFrame for every 50 ms of audio and onLevel (0–1) a few times a second. Returns a stop function. */
-export function tap(stream: MediaStream, onFrame: (pcm: Int16Array) => void, onLevel: (v: number) => void): () => void {
-  const ctx = new AudioContext({ sampleRate: 16000 });
+import { RnnoiseWorkletNode, GtcrnWorkletNode, loadRnnoise, loadGtcrn } from '@sapphi-red/web-noise-suppressor';
+import gtcrnWorklet from '@sapphi-red/web-noise-suppressor/gtcrnWorklet.js?url';
+import gtcrnWasm from '@sapphi-red/web-noise-suppressor/gtcrn.wasm?url';
+import rnnoiseWorklet from '@sapphi-red/web-noise-suppressor/rnnoiseWorklet.js?url';
+import rnnoiseWasm from '@sapphi-red/web-noise-suppressor/rnnoise.wasm?url';
+import rnnoiseSimd from '@sapphi-red/web-noise-suppressor/rnnoise_simd.wasm?url';
+
+/** Neural noise removal from sapphi-red/web-noise-suppressor: GTCRN (Xiaobin-Rong/gtcrn, ~200 KB, 16 kHz) or RNNoise
+ *  (xiph/rnnoise, ~150 KB, 48 kHz). They strip fans, hiss, keyboards and background noise before the speech engine hears them. */
+let wasm: Promise<ArrayBuffer> | null = null;
+let wasmG: Promise<ArrayBuffer> | null = null;
+const loadGtcrnWasm = () => (wasmG ??= loadGtcrn({ url: gtcrnWasm }).catch((e) => { wasmG = null; throw e; }));
+export const DEFAULT_CLEANER: Cleaner = 'gtcrn';
+export type Cleaner = 'rnnoise' | 'gtcrn' | false;
+const loadWasm = () => (wasm ??= loadRnnoise({ url: rnnoiseWasm, simdUrl: rnnoiseSimd }).catch((e) => { wasm = null; throw e; }));
+
+/** 48 kHz → 16 kHz: a 6-tap low-pass (so high sounds do not fold into the speech band), then every third sample. */
+function decimator() {
+  let prev = [0, 0, 0];
+  return (x: Float32Array): Float32Array => {
+    const n = Math.floor(x.length / 3);
+    const out = new Float32Array(n);
+    for (let k = 0; k < n; k++) {
+      const c0 = x[3 * k], c1 = x[3 * k + 1], c2 = x[3 * k + 2];
+      out[k] = (prev[0] + 2 * prev[1] + 3 * prev[2] + 3 * c0 + 2 * c1 + c2) / 12;
+      prev = [c0, c1, c2];
+    }
+    return out;
+  };
+}
+
+/**
+ * Calls onFrame for every 50 ms of 16 kHz audio and onLevel (0–1) a few times a second. With `clean` the sound first
+ * goes through RNNoise (falls back to the plain path if that cannot start). Resolves with a stop function.
+ */
+export async function tap(stream: MediaStream, onFrame: (pcm: Int16Array) => void, onLevel: (v: number) => void, clean: Cleaner | true = DEFAULT_CLEANER): Promise<() => void> {
+  const first: Cleaner = clean === true ? DEFAULT_CLEANER : clean;
+  // GTCRN (small neural denoiser, 16 kHz) first, RNNoise (48 kHz) if that cannot start, the plain microphone last.
+  const order: Cleaner[] = first === 'gtcrn' ? ['gtcrn', 'rnnoise', false] : first === 'rnnoise' ? ['rnnoise', 'gtcrn', false] : [false];
+  let ctx!: AudioContext;
+  let kind: Cleaner = false;
+  let denoise: RnnoiseWorkletNode | GtcrnWorkletNode | null = null;
+  for (const k of order) {
+    ctx = new AudioContext({ sampleRate: k === 'rnnoise' ? 48000 : 16000 });
+    if (!k) break;
+    try {
+      if (k === 'rnnoise') {
+        await ctx.audioWorklet.addModule(rnnoiseWorklet);
+        denoise = new RnnoiseWorkletNode(ctx, { maxChannels: 1, wasmBinary: await loadWasm() });
+      } else {
+        await ctx.audioWorklet.addModule(gtcrnWorklet);
+        denoise = new GtcrnWorkletNode(ctx, { maxChannels: 1, wasmBinary: await loadGtcrnWasm() });
+      }
+      kind = k;
+      break;
+    } catch (e) {
+      console.warn(`Noise suppression "${k}" unavailable`, e);
+      void ctx.close();
+    }
+  }
   const src = ctx.createMediaStreamSource(stream);
-  const node = ctx.createScriptProcessor(2048, 1, 1);
+  const node = ctx.createScriptProcessor(4096, 1, 1);
   const mute = ctx.createGain(); // keep the graph alive without playing the audio back
   mute.gain.value = 0;
+  const down = denoise && kind === 'rnnoise' ? decimator() : null;
   let carry = new Float32Array(0);
   let last = 0;
 
   node.onaudioprocess = (e) => {
-    const x = e.inputBuffer.getChannelData(0);
+    const raw = e.inputBuffer.getChannelData(0);
+    const x = down ? down(raw) : raw;
     const buf = new Float32Array(carry.length + x.length);
     buf.set(carry);
     buf.set(x, carry.length);
@@ -105,12 +164,12 @@ export function tap(stream: MediaStream, onFrame: (pcm: Int16Array) => void, onL
     carry = buf.slice(o);
   };
 
-  src.connect(node);
+  if (denoise) { src.connect(denoise); denoise.connect(node); } else src.connect(node);
   node.connect(mute);
   mute.connect(ctx.destination);
   return () => {
     node.onaudioprocess = null;
-    try { src.disconnect(); node.disconnect(); mute.disconnect(); } catch { /* already closed */ }
+    try { src.disconnect(); denoise?.disconnect(); denoise?.destroy(); node.disconnect(); mute.disconnect(); } catch { /* already closed */ }
     stream.getTracks().forEach((t) => t.stop());
     void ctx.close();
     onLevel(0);

@@ -51,7 +51,7 @@ export function useListen(onLine: (l: Line) => void, onProblem: (msg: string) =>
         });
         engines.current.push(engine);
         const feed = gated(engine.push, w === 'me' ? MIC_GATE : SYSTEM_GATE);
-        stops.current.push(tap(stream, feed,(v) => { levels.current[w] = v; setLevel(Math.max(levels.current.me, levels.current.them)); }));
+        stops.current.push(await tap(stream, feed, (v) => { levels.current[w] = v; setLevel(Math.max(levels.current.me, levels.current.them)); }));
       } catch (e) {
         failed.push(`${w === 'them' ? 'Computer sound' : 'Microphone'}: ${(e as Error).message}`);
       }
