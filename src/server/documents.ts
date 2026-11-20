@@ -20,7 +20,8 @@ export async function parseDocument(buf: Buffer, fileName: string): Promise<Pars
   if (ext === '.pdf' || buf.subarray(0, 4).toString() === '%PDF') {
     // Import the inner module: pdf-parse's index.js runs a debug routine on require()
     const pdfParse = require('pdf-parse/lib/pdf-parse.js') as (b: Buffer) => Promise<{ text: string; numpages: number }>;
-    const out = await pdfParse(buf);
+    // Inside Electron, pdf.js chokes on a Node Buffer ("bad XRef entry"); a plain Uint8Array copy works everywhere.
+    const out = await pdfParse(new Uint8Array(buf) as unknown as Buffer);
     return { text: clean(out.text), pages: out.numpages, kind: 'pdf' };
   }
 

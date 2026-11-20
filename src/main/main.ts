@@ -56,10 +56,11 @@ function createWindow() {
   Menu.setApplicationMenu(null);
   win = new BrowserWindow({
     width: 460, height: 760, minWidth: 380, minHeight: 520,
-    title: 'Sotto', backgroundColor: '#faf9f7', autoHideMenuBar: true, show: false,
+    title: 'Sotto', backgroundColor: '#faf9f7', autoHideMenuBar: true, show: false, skipTaskbar: privateMode,
     icon: path.join(__dirname, '../../assets/icon.png'),
     webPreferences: webPrefs,
   });
+  win.setContentProtection(privateMode); // hidden from screen capture from the very first frame, not after the page loads
   win.once('ready-to-show', () => win?.show());
   win.on('closed', () => { win = null; });
   lockDown(win);

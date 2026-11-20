@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 — 2026-11-20
+
+- Fix: PDF CVs failed to upload in the installed app ("bad XRef entry"); Word and text files were fine. PDF parsing now works inside Electron.
+- The installed app reads API keys from `%APPDATA%\Sotto\.env` as well as the working folder, so keys no longer have to be pasted into Settings.
+- The window is hidden from screen capture and the taskbar from the first frame, not just after the page loads.
+
 ## 0.1.1 — 2026-11-20
 
 - Microphone fix: if Windows' default microphone is muted (common with USB headsets/webcams), Sotto now tries your other microphones, uses the first that picks up sound, tells you which one, and remembers it.

@@ -1,14 +1,19 @@
 import fs from 'fs';
 import path from 'path';
 
-/** Read keys from a local .env (dev convenience). Real environment variables win. */
+/**
+ * Read keys from a .env file: next to where the app was started (development) or in the app's data folder
+ * (installed: %APPDATA%\Sotto\.env). Real environment variables win.
+ */
 export function loadEnv(): void {
-  const file = path.resolve(process.cwd(), '.env');
-  if (!fs.existsSync(file)) return;
-  for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/i);
-    if (!m || line.trim().startsWith('#')) continue;
-    if (process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  const files = [path.resolve(process.cwd(), '.env'), ...(process.env.SOTTO_DATA_DIR ? [path.join(process.env.SOTTO_DATA_DIR, '.env')] : [])];
+  for (const file of files) {
+    if (!fs.existsSync(file)) continue;
+    for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/i);
+      if (!m || line.trim().startsWith('#')) continue;
+      if (process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+    }
   }
 }
 loadEnv();

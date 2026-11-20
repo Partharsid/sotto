@@ -54,7 +54,7 @@ It is deliberately small: a single window, three screens (Listen, Notes, Setting
 ## Privacy
 
 - Your CV, transcript and keys stay on your computer. The only things that leave it are the text of a question (plus relevant CV passages) sent to the answer provider **you** chose, and audio sent to Deepgram or a Whisper API **if you choose those**. The default on-device engine sends no audio anywhere.
-- API keys you paste are stored locally in the app's storage (not encrypted at rest). Keys in `.env` are read only by the local server.
+- API keys you paste are stored locally in the app's storage (not encrypted at rest). Keys in `.env` are read only by the local server (installed app: put the file at `%APPDATA%\Sotto\.env`).
 - The local server accepts connections from this machine only and rejects requests from web pages.
 
 ## Responsible use
