@@ -13,7 +13,7 @@ export async function listMics(): Promise<MicInfo[]> {
 }
 
 const openMic = (id?: string) =>
-  navigator.mediaDevices.getUserMedia({ audio: { deviceId: id ? { exact: id } : undefined, echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+  navigator.mediaDevices.getUserMedia({ audio: { deviceId: id ? { exact: id } : undefined, echoCancellation: true, noiseSuppression: true, autoGainControl: false, channelCount: 1 } }); // no auto-gain: it turns the room hiss up between words
 
 /** A muted or unplugged device hands over a track that never "unmutes". */
 async function delivers(s: MediaStream): Promise<boolean> {

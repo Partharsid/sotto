@@ -3,6 +3,7 @@ import { friendly, streamAnswer, type Chat } from './api';
 import { openStream, tap, type Who } from './audio';
 import { context, systemPrompt } from './brain';
 import { createEngine, type Engine } from './engines';
+import { gated, isJunk, MIC_GATE, SYSTEM_GATE } from './gate';
 import { useStore, type Source } from './store';
 
 // ── Listening ────────────────────────────────────────────────────────────────────────────────
@@ -45,11 +46,12 @@ export function useListen(onLine: (l: Line) => void, onProblem: (msg: string) =>
         const stream = await openStream(w, listen.micId ?? '', (m) => cb.current.onProblem(m), (id) => useStore.getState().patch('listen', { micId: id }));
         const engine = createEngine(listen, {
           partial: (text) => setPartial((p) => (p[w] === text ? p : { ...p, [w]: text })),
-          final: (text) => cb.current.onLine({ id: ++lineId, who: w, text }),
+          final: (text) => { if (!isJunk(text)) cb.current.onLine({ id: ++lineId, who: w, text }); },
           error: (e) => { if (!told) { told = true; cb.current.onProblem(e.message); } },
         });
         engines.current.push(engine);
-        stops.current.push(tap(stream, engine.push, (v) => { levels.current[w] = v; setLevel(Math.max(levels.current.me, levels.current.them)); }));
+        const feed = listen.engine === 'whisper' ? engine.push : gated(engine.push, w === 'me' ? MIC_GATE : SYSTEM_GATE); // the Whisper engine already cuts on silence
+        stops.current.push(tap(stream, feed,(v) => { levels.current[w] = v; setLevel(Math.max(levels.current.me, levels.current.them)); }));
       } catch (e) {
         failed.push(`${w === 'them' ? 'Computer sound' : 'Microphone'}: ${(e as Error).message}`);
       }

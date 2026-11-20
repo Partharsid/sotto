@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 — 2026-11-20
+
+- Fix: the speech model wrote random text out of background noise. Sotto now learns how loud your room is and only lets sound through when something clearly louder (speech) happens; key clicks and coughs are ignored.
+- The microphone no longer uses automatic gain, which was turning the room hiss up between words.
+- Made-up lines such as "Thank you.", "[music]", lone "uh"/"you" or a stuck "the the the" are dropped before they show up or trigger an answer.
+
 ## 0.1.3 â€” 2026-11-20
 
 - Call detection no longer depends on Windows' microphone-use log, which some Windows builds stop updating (on one PC it had not recorded anything for weeks, so no call was ever detected). Sotto now also asks Windows' audio engine which apps have an open capture stream.
