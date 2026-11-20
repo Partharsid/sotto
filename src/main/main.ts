@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, desktopCapturer, globalShortcut, ipcMain, nativeTheme, screen, session, shell } from 'electron';
 import fs from 'fs';
 import path from 'path';
-import { micApps, watchMeetings, type Meeting } from './meeting';
+import { micApps, stopCaptureWatcher, watchMeetings, type Meeting } from './meeting';
 
 // Packaged: the speech engine lives in the user's data dir and its script ships in resources (read by the server code).
 // In development both are ./stt-sidecar.
@@ -160,5 +160,5 @@ app.whenReady().then(async () => {
   watchMeetings(onMeetingStart, onMeetingEnd);
 });
 
-app.on('will-quit', () => globalShortcut.unregisterAll());
+app.on('will-quit', () => { globalShortcut.unregisterAll(); stopCaptureWatcher(); });
 app.on('window-all-closed', () => app.quit());

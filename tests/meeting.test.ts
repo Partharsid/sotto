@@ -42,3 +42,10 @@ test('real registry output on this machine parses without throwing', () => {
   assert.doesNotThrow(() => parseActiveMicApps(''));
   assert.deepEqual(parseActiveMicApps('garbage\r\n\r\nHKEY_NOPE'), []);
 });
+
+test('capture helper lines: names are split, other output is ignored', async () => {
+  const { parseCaptureLine } = await import('../src/main/meeting');
+  assert.deepEqual(parseCaptureLine('SOTTO-CAP:chrome,Zoom'), ['chrome', 'Zoom']);
+  assert.deepEqual(parseCaptureLine('SOTTO-CAP:'), []);
+  assert.equal(parseCaptureLine('Add-Type : something broke'), null);
+});

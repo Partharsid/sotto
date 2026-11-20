@@ -7,6 +7,9 @@ import { Check, Chev, Copy, Doc, Eye, EyeOff, Mic, Plus, Send, Trash, Seg, Switc
 
 export interface Moon { installed: boolean; running: boolean; installing: boolean; error?: string }
 
+/** "Zoom" → "Zoom call"; "a browser call" stays as is. */
+const callName = (app: string) => (/call$/i.test(app) ? app : `${app} call`);
+
 // ── Listen ────────────────────────────────────────────────────────────────────────────────────
 interface ListenProps {
   on: boolean; busy: boolean; level: number; partial: { me: string; them: string }; last: Line | null;
@@ -40,7 +43,7 @@ export function Listen({ on, busy, level, partial, last, cards, moon, lines, mee
           {busy ? <span className="spin" /> : on ? <span className="bars"><i /><i /><i /></span> : <Mic size={38} strokeWidth={1.6} />}
         </button>
         <div className="hint">
-          {busy ? (slow ? 'Waiting for Windows to open your microphone…' : 'Starting…') : on ? (meetingApp ? `Listening · ${meetingApp} call` : `Listening to ${source === 'both' ? 'the call and your mic' : source === 'system' ? 'the call' : 'your mic'}`) : meetingApp ? `${meetingApp} call detected · tap to start` : 'Tap to start listening'}
+          {busy ? (slow ? 'Waiting for Windows to open your microphone…' : 'Starting…') : on ? (meetingApp ? `Listening · ${callName(meetingApp)}` : `Listening to ${source === 'both' ? 'the call and your mic' : source === 'system' ? 'the call' : 'your mic'}`) : meetingApp ? `${callName(meetingApp)} detected · tap to start` : 'Tap to start listening'}
         </div>
         {!on && !busy && (
           <Seg<Source> className="sources" label="What to listen to" value={source} onChange={(v) => patch('listen', { source: v })} options={[['both', 'Both'], ['system', 'Call'], ['mic', 'Mic']]} />

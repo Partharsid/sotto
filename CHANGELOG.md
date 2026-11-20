@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3 — 2026-11-20
+
+- Call detection no longer depends on Windows' microphone-use log, which some Windows builds stop updating (on one PC it had not recorded anything for weeks, so no call was ever detected). Sotto now also asks Windows' audio engine which apps have an open capture stream.
+
 ## 0.1.2 — 2026-11-20
 
 - Fix: PDF CVs failed to upload in the installed app ("bad XRef entry"); Word and text files were fine. PDF parsing now works inside Electron.
