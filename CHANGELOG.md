@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 — 2026-11-20
+
+- Microphone fix: if Windows' default microphone is muted (common with USB headsets/webcams), Sotto now tries your other microphones, uses the first that picks up sound, tells you which one, and remembers it.
+- New Settings → Listening → Microphone picker (re-lists when you plug something in).
+- If Windows is slow to open the microphone, the Listen screen says so instead of sitting on "Starting…".
+
 ## 0.1.0 — 2026-11-19
 
 First public release.

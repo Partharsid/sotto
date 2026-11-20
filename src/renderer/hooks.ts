@@ -42,7 +42,7 @@ export function useListen(onLine: (l: Line) => void, onProblem: (msg: string) =>
     let told = false;
     for (const w of who) {
       try {
-        const stream = await openStream(w);
+        const stream = await openStream(w, listen.micId ?? '', (m) => cb.current.onProblem(m), (id) => useStore.getState().patch('listen', { micId: id }));
         const engine = createEngine(listen, {
           partial: (text) => setPartial((p) => (p[w] === text ? p : { ...p, [w]: text })),
           final: (text) => cb.current.onLine({ id: ++lineId, who: w, text }),

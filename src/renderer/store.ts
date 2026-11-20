@@ -7,7 +7,7 @@ export type Source = 'both' | 'system' | 'mic';
 
 export interface Settings {
   ai: { kind: AiKind; keys: Record<AiKind, string>; models: string; baseUrl: string };
-  listen: { engine: Engine; size: 'tiny' | 'small'; source: Source; keys: { deepgram: string; whisper: string }; whisperBase: string };
+  listen: { engine: Engine; size: 'tiny' | 'small'; source: Source; /** '' = system default */ micId?: string; keys: { deepgram: string; whisper: string }; whisperBase: string };
   ui: { private: boolean; pin: boolean; auto: boolean; length: 'short' | 'long' };
   /** ask = pop up when a call starts; auto = just start helping; off = never. `ignore` = apps the user said never for. */
   meeting: { mode: 'ask' | 'auto' | 'off'; ignore: string[] };
@@ -31,7 +31,7 @@ export const useStore = create<State>()(
   persist(
     (set) => ({
       ai: { kind: 'openrouter', keys: { openrouter: '', gemini: '', custom: '' }, models: '', baseUrl: '' },
-      listen: { engine: 'moonshine', size: 'small', source: 'both', keys: { deepgram: '', whisper: '' }, whisperBase: 'https://api.groq.com/openai/v1' },
+      listen: { engine: 'moonshine', size: 'small', source: 'both', micId: '', keys: { deepgram: '', whisper: '' }, whisperBase: 'https://api.groq.com/openai/v1' },
       ui: { private: true, pin: false, auto: true, length: 'short' },
       meeting: { mode: 'ask', ignore: [] },
       docs: [],

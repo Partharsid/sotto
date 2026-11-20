@@ -134,6 +134,7 @@ function wireSecurityAndAudio() {
   const ses = session.defaultSession;
   ses.webRequest.onHeadersReceived((d, cb) => cb({ responseHeaders: { ...d.responseHeaders, 'Content-Security-Policy': [CSP] } }));
   // The window may use the microphone and system-audio capture; nothing else.
+  ses.setPermissionCheckHandler((_wc, perm) => perm === 'media'); // also lets the page list microphone names before first use
   ses.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'media' || perm === 'display-capture'));
   // System audio ("what the other person says"): share the screen's audio loopback, no picker, no video used.
   ses.setDisplayMediaRequestHandler((_req, cb) => {

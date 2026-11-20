@@ -3,9 +3,69 @@
 export type Who = 'me' | 'them';
 export const FRAME = 800; // samples = 50 ms @ 16 kHz
 
-export async function openStream(who: Who): Promise<MediaStream> {
+export interface MicInfo { id: string; label: string }
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** The microphones Windows knows about (without the duplicate "Default"/"Communications" aliases). */
+export async function listMics(): Promise<MicInfo[]> {
+  const all = await navigator.mediaDevices.enumerateDevices();
+  return all.filter((d) => d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications').map((d) => ({ id: d.deviceId, label: d.label || 'Microphone' }));
+}
+
+const openMic = (id?: string) =>
+  navigator.mediaDevices.getUserMedia({ audio: { deviceId: id ? { exact: id } : undefined, echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+
+/** A muted or unplugged device hands over a track that never "unmutes". */
+async function delivers(s: MediaStream): Promise<boolean> {
+  const t = s.getAudioTracks()[0];
+  for (let i = 0; i < 10 && t?.muted; i++) await sleep(100);
+  return !!t && !t.muted;
+}
+
+const stopAll = (s: MediaStream) => s.getTracks().forEach((t) => t.stop());
+
+/** Opens all of `mics` at once; resolves with the first that delivers sound (the rest are closed as they finish), else null. */
+function firstWorking(mics: MicInfo[]): Promise<{ m: MicInfo; c: MediaStream } | null> {
+  return new Promise((resolve) => {
+    let won = false, left = mics.length;
+    if (!left) return resolve(null);
+    for (const m of mics) {
+      openMic(m.id).catch(() => null).then(async (c) => {
+        const ok = !!c && (await delivers(c));
+        if (c && (!ok || won)) stopAll(c);
+        else if (c && ok) { won = true; resolve({ m, c }); }
+        if (--left === 0 && !won) resolve(null);
+      });
+    }
+  });
+}
+
+/**
+ * Opens a call-audio ("them") or microphone ("me") stream. For the mic: use the one chosen in Settings; with
+ * "system default", if that device is muted/silent, switch to the first one that works and say so via `notify`.
+ */
+export async function openStream(who: Who, micId = '', notify: (msg: string) => void = () => {}, onPick: (id: string) => void = () => {}): Promise<MediaStream> {
   if (who === 'me') {
-    return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+    if (micId) {
+      const s = await openMic(micId).catch(async (e: Error) => {
+        if (/NotFound|Overconstrained/i.test(e.name)) { notify('The microphone you chose is not connected, so Sotto is using the system default.'); return openMic(); }
+        throw e;
+      });
+      if (!(await delivers(s))) notify('Your microphone looks muted or silent. Unmute it, or pick another one in Settings → Listening.');
+      return s;
+    }
+    // "System default": if that device is muted, try every other microphone at once — the first that delivers sound wins.
+    const s = await openMic();
+    if (await delivers(s)) return s;
+    const alt = await firstWorking((await listMics()).filter((m) => m.id));
+    if (alt) {
+      stopAll(s);
+      onPick(alt.m.id);
+      notify(`Your default microphone looks muted, so Sotto is using “${alt.m.label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)/i, '')}”. You can change it in Settings → Listening.`);
+      return alt.c;
+    }
+    notify('Your microphone looks muted or silent. Unmute it, or pick another one in Settings → Listening.');
+    return s;
   }
   // The desktop shell answers this with the screen's audio loopback; the video track is thrown away.
   const s = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });

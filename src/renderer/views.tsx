@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { API, call } from './api';
+import { listMics, type MicInfo } from './audio';
 import type { Card, Line } from './hooks';
 import { useStore, type AiKind, type Engine, type Source } from './store';
 import { Check, Chev, Copy, Doc, Eye, EyeOff, Mic, Plus, Send, Trash, Seg, Switch, Field, toast } from './ui';
@@ -24,6 +25,13 @@ export function Listen({ on, busy, level, partial, last, cards, moon, lines, mee
   const newest = cards[0]?.id;
   // a new answer should be in view without hunting for it
   useEffect(() => { if (newest) view.current?.scrollTo({ top: 0, behavior: 'smooth' }); }, [newest]);
+  // Windows can be slow to hand over a microphone; say so instead of looking frozen
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!busy) { setSlow(false); return; }
+    const t = setTimeout(() => setSlow(true), 3000);
+    return () => clearTimeout(t);
+  }, [busy]);
 
   return (
     <div className="view" ref={view}>
@@ -32,7 +40,7 @@ export function Listen({ on, busy, level, partial, last, cards, moon, lines, mee
           {busy ? <span className="spin" /> : on ? <span className="bars"><i /><i /><i /></span> : <Mic size={38} strokeWidth={1.6} />}
         </button>
         <div className="hint">
-          {busy ? 'Starting…' : on ? (meetingApp ? `Listening · ${meetingApp} call` : `Listening to ${source === 'both' ? 'the call and your mic' : source === 'system' ? 'the call' : 'your mic'}`) : meetingApp ? `${meetingApp} call detected · tap to start` : 'Tap to start listening'}
+          {busy ? (slow ? 'Waiting for Windows to open your microphone…' : 'Starting…') : on ? (meetingApp ? `Listening · ${meetingApp} call` : `Listening to ${source === 'both' ? 'the call and your mic' : source === 'system' ? 'the call' : 'your mic'}`) : meetingApp ? `${meetingApp} call detected · tap to start` : 'Tap to start listening'}
         </div>
         {!on && !busy && (
           <Seg<Source> className="sources" label="What to listen to" value={source} onChange={(v) => patch('listen', { source: v })} options={[['both', 'Both'], ['system', 'Call'], ['mic', 'Mic']]} />
@@ -198,6 +206,26 @@ function Secret({ value, onChange, placeholder }: { value: string; onChange: (v:
   );
 }
 
+function MicPicker() {
+  const micId = useStore((s) => s.listen.micId ?? '');
+  const patch = useStore((s) => s.patch);
+  const [mics, setMics] = useState<MicInfo[]>([]);
+  useEffect(() => {
+    const load = () => listMics().then(setMics).catch(() => setMics([]));
+    load();
+    navigator.mediaDevices.addEventListener('devicechange', load);
+    return () => navigator.mediaDevices.removeEventListener('devicechange', load);
+  }, []);
+  return (
+    <Field label="Microphone" hint="Used for what you say. If the system default is muted, Sotto switches to one that works.">
+      <select className="input" value={micId} onChange={(e) => patch('listen', { micId: e.target.value })} aria-label="Microphone">
+        <option value="">System default</option>
+        {mics.map((m) => <option key={m.id} value={m.id}>{m.label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)/i, '')}</option>)}
+      </select>
+    </Field>
+  );
+}
+
 function MicNow() {
   const [apps, setApps] = useState<string[] | null>(null);
   useEffect(() => {
@@ -234,6 +262,7 @@ export function Settings({ moon, onInstall }: { moon: Moon | null; onInstall: ()
       <section className="sec">
         <h3>Listening</h3>
         <Seg<Engine> label="Speech engine" value={listen.engine} onChange={(v) => patch('listen', { engine: v })} options={[['moonshine', 'On-device'], ['deepgram', 'Deepgram'], ['whisper', 'Whisper API']]} />
+        <MicPicker />
         {listen.engine === 'moonshine' && (
           <>
             <Field label="Model size" hint="Tiny is fastest; Small is more accurate.">
