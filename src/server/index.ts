@@ -4,6 +4,7 @@ import { race, envSpec, type ProviderSpec } from './ai';
 import { transcribe, hasWhisper, type WhisperSpec } from './stt';
 import { parseDocument } from './documents';
 import * as moonshine from './moonshine';
+import * as whispercpp from './whispercpp';
 
 /** Origins allowed to call the local API: the packaged app (file:// → "null") and the dev server. */
 const ORIGINS = new Set(['null', 'file://', 'http://localhost:3000', 'http://127.0.0.1:3000']);
@@ -92,6 +93,16 @@ export function createApp() {
   app.post('/api/moonshine/install', act(moonshine.install));
   app.post('/api/moonshine/start', act(moonshine.start));
   app.post('/api/moonshine/stop', act(() => moonshine.stop()));
+
+  // ── On-device listening, whisper.cpp (no Python)
+  app.get('/api/whispercpp', (_req, res) => res.json(whispercpp.status()));
+  const actW = (fn: (size: whispercpp.Arch) => Promise<unknown> | unknown) => async (req: express.Request, res: express.Response) => {
+    try { await fn(req.body?.arch === 'tiny' ? 'tiny' : 'small'); res.json(whispercpp.status()); }
+    catch (e) { res.status(500).json({ message: (e as Error).message, ...whispercpp.status() }); }
+  };
+  app.post('/api/whispercpp/install', actW(whispercpp.install));
+  app.post('/api/whispercpp/start', actW(whispercpp.start));
+  app.post('/api/whispercpp/stop', actW(() => whispercpp.stop()));
 
   return app;
 }

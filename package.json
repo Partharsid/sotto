@@ -1,7 +1,7 @@
 {
   "name": "sotto",
   "productName": "Sotto",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A quiet, instant copilot for live conversations: listens, understands the question, and whispers an answer from your CV.",
   "author": "Partharsid",
   "license": "MIT",

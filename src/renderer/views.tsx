@@ -23,7 +23,7 @@ export function Listen({ on, busy, level, partial, last, cards, moon, lines, mee
   const engine = useStore((s) => s.listen.engine);
   const patch = useStore((s) => s.patch);
   const live = partial.them ? { who: 'Them', text: partial.them } : partial.me ? { who: 'You', text: partial.me } : null;
-  const needSetup = engine === 'moonshine' && moon && !moon.installed;
+  const needSetup = (engine === 'local' || engine === 'moonshine') && moon && !moon.installed;
   const view = useRef<HTMLDivElement>(null);
   const newest = cards[0]?.id;
   // a new answer should be in view without hunting for it
@@ -264,8 +264,20 @@ export function Settings({ moon, onInstall }: { moon: Moon | null; onInstall: ()
 
       <section className="sec">
         <h3>Listening</h3>
-        <Seg<Engine> label="Speech engine" value={listen.engine} onChange={(v) => patch('listen', { engine: v })} options={[['moonshine', 'On-device'], ['deepgram', 'Deepgram'], ['whisper', 'Whisper API']]} />
+        <Seg<Engine> label="Speech engine" value={listen.engine} onChange={(v) => patch('listen', { engine: v })} options={[['local', 'On-device'], ['moonshine', 'Live'], ['deepgram', 'Deepgram'], ['whisper', 'Whisper API']]} />
         <MicPicker />
+        {listen.engine === 'local' && (
+          <>
+            <Field label="Model size" hint="Tiny is fastest; Small is more accurate.">
+              <Seg label="Model size" value={listen.size} onChange={(v) => patch('listen', { size: v })} options={[['tiny', 'Tiny'], ['small', 'Small']]} />
+            </Field>
+            <div className="row" style={{ marginTop: 6 }}>
+              <div>{moon?.installed ? 'Ready' : 'Not set up yet'}<small>Whisper.cpp: free, private, runs on your CPU. No Python needed; about 80 MB, once.</small></div>
+              {!moon?.installed && <button className="btn soft" onClick={onInstall} disabled={moon?.installing}>{moon?.installing ? 'Setting up…' : 'Set up'}</button>}
+            </div>
+            {moon?.error && <small style={{ color: 'var(--err)' }}>{moon.error}</small>}
+          </>
+        )}
         {listen.engine === 'moonshine' && (
           <>
             <Field label="Model size" hint="Tiny is fastest; Small is more accurate.">
@@ -317,4 +329,4 @@ export function Settings({ moon, onInstall }: { moon: Moon | null; onInstall: ()
   );
 }
 
-export const fetchMoon = () => call<Moon>('/api/moonshine');
+export const fetchMoon = (engine: Engine = 'local') => call<Moon>(engine === 'local' ? '/api/whispercpp' : '/api/moonshine');

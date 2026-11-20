@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type AiKind = 'openrouter' | 'gemini' | 'custom';
-export type Engine = 'moonshine' | 'deepgram' | 'whisper';
+export type Engine = 'local' | 'moonshine' | 'deepgram' | 'whisper';
 export type Source = 'both' | 'system' | 'mic';
 
 export interface Settings {
@@ -31,7 +31,7 @@ export const useStore = create<State>()(
   persist(
     (set) => ({
       ai: { kind: 'openrouter', keys: { openrouter: '', gemini: '', custom: '' }, models: '', baseUrl: '' },
-      listen: { engine: 'moonshine', size: 'small', source: 'both', micId: '', keys: { deepgram: '', whisper: '' }, whisperBase: 'https://api.groq.com/openai/v1' },
+      listen: { engine: 'local', size: 'small', source: 'both', micId: '', keys: { deepgram: '', whisper: '' }, whisperBase: 'https://api.groq.com/openai/v1' },
       ui: { private: true, pin: false, auto: true, length: 'short' },
       meeting: { mode: 'ask', ignore: [] },
       docs: [],
@@ -42,6 +42,6 @@ export const useStore = create<State>()(
       toggleDoc: (id) => set((s) => ({ docs: s.docs.map((d) => (d.id === id ? { ...d, on: !d.on } : d)) })),
       removeDoc: (id) => set((s) => ({ docs: s.docs.filter((d) => d.id !== id) })),
     }),
-    { name: 'sotto', version: 2, migrate: (p: any) => ({ ...p, meeting: p?.meeting ?? { mode: 'ask', ignore: [] } }) },
+    { name: 'sotto', version: 3, migrate: (p: any) => ({ ...p, meeting: p?.meeting ?? { mode: 'ask', ignore: [] }, listen: p?.listen?.engine === 'moonshine' ? { ...p.listen, engine: 'local' } : p?.listen }) },
   ),
 );

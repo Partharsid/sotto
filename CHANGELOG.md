@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5 — 2026-11-20
+
+- New default on-device speech engine: whisper.cpp (the most-starred open-source speech runtime that runs on a plain CPU). No Python needed; about 80 MB downloaded once from Settings > Listening > Set up. Text appears about a second after you pause.
+- The previous engine is still available as "Live" (word-by-word, needs Python).
+- The noise gate now sits in front of every engine.
+
 ## 0.1.4 — 2026-11-20
 
 - Fix: the speech model wrote random text out of background noise. Sotto now learns how loud your room is and only lets sound through when something clearly louder (speech) happens; key clicks and coughs are ignored.

@@ -50,7 +50,7 @@ export function useListen(onLine: (l: Line) => void, onProblem: (msg: string) =>
           error: (e) => { if (!told) { told = true; cb.current.onProblem(e.message); } },
         });
         engines.current.push(engine);
-        const feed = listen.engine === 'whisper' ? engine.push : gated(engine.push, w === 'me' ? MIC_GATE : SYSTEM_GATE); // the Whisper engine already cuts on silence
+        const feed = gated(engine.push, w === 'me' ? MIC_GATE : SYSTEM_GATE);
         stops.current.push(tap(stream, feed,(v) => { levels.current[w] = v; setLevel(Math.max(levels.current.me, levels.current.them)); }));
       } catch (e) {
         failed.push(`${w === 'them' ? 'Computer sound' : 'Microphone'}: ${(e as Error).message}`);

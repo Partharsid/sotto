@@ -67,22 +67,24 @@ export default function App() {
   }, [answerLast, patch]);
 
   // ── on-device engine status ──────────────────────────────────────────────────────────────────
-  const refreshMoon = useCallback(() => { fetchMoon().then(setMoon).catch(() => setMoon(null)); }, []);
-  useEffect(() => { if (engine === 'moonshine') refreshMoon(); }, [engine, refreshMoon]);
+  const onDevice = engine === 'local' || engine === 'moonshine';
+  const apiBase = engine === 'local' ? '/api/whispercpp' : '/api/moonshine';
+  const refreshMoon = useCallback(() => { fetchMoon(engine).then(setMoon).catch(() => setMoon(null)); }, [engine]);
+  useEffect(() => { if (onDevice) refreshMoon(); }, [onDevice, refreshMoon]);
   // Start the on-device engine quietly once it is installed, so the first question is not lost to a cold start.
   useEffect(() => {
-    if (engine === 'moonshine' && moon?.installed && !moon.running && !moon.installing) call('/api/moonshine/start', { arch: size }).then(refreshMoon).catch(() => {});
-  }, [engine, size, moon?.installed, moon?.running, moon?.installing, refreshMoon]);
+    if (onDevice && moon?.installed && !moon.running && !moon.installing) call(`${apiBase}/start`, { arch: size }).then(refreshMoon).catch(() => {});
+  }, [onDevice, apiBase, size, moon?.installed, moon?.running, moon?.installing, refreshMoon]);
 
   async function install() {
     setMoon((m) => ({ installed: false, running: false, ...m, installing: true }));
-    try { setMoon(await call<Moon>('/api/moonshine/install', { arch: size })); toast('Ready — tap the circle to listen'); }
+    try { setMoon(await call<Moon>(`${apiBase}/install`, { arch: size })); toast('Ready — tap the circle to listen'); }
     catch (e) { toast((e as Error).message); refreshMoon(); }
   }
 
   const toggle = () => {
     if (listen.on) { startedByCall.current = false; return listen.stop(); }
-    if (engine === 'moonshine' && moon && !moon.installed) { toast('Set up on-device listening first'); return; }
+    if (onDevice && moon && !moon.installed) { toast('Set up on-device listening first'); return; }
     void listen.start();
   };
   const submit = () => { const q = text.trim(); if (q) { asked.current = q; void ask(q); setText(''); } };

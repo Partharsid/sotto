@@ -22,7 +22,9 @@ loadEnv();
 export interface WhisperSpec { apiKey?: string; baseUrl?: string; model?: string }
 
 function resolve(spec?: WhisperSpec) {
-  const key = spec?.apiKey || process.env.STT_API_KEY || '';
+  // The on-device whisper.cpp server on this PC needs no key.
+  const local = /^http:\/\/127\.0\.0\.1:\d+\//.test(spec?.baseUrl ?? '');
+  const key = spec?.apiKey || (local ? 'local' : '') || process.env.STT_API_KEY || '';
   if (!key) return null;
   return {
     key,

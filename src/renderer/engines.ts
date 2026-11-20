@@ -94,7 +94,7 @@ function deepgram(s: Settings['listen'], ev: Events): Engine {
 }
 
 // ── Whisper API (Groq, OpenAI, ...): cut speech into utterances, upload each one ──────────────
-function whisper(s: Settings['listen'], ev: Events): Engine {
+function whisper(getSpec: () => Promise<{ apiKey?: string; baseUrl?: string }>, ev: Events): Engine {
   const SPEECH = 0.012, SILENCE_MS = 550, MIN_MS = 300, MAX_MS = 20000;
   let buf: Int16Array[] = [];
   let pre: Int16Array[] = [];
@@ -110,7 +110,7 @@ function whisper(s: Settings['listen'], ev: Events): Engine {
     let o = 0;
     for (const p of parts) { all.set(p, o); o += p.length; }
     try {
-      const spec = { apiKey: s.keys.whisper, baseUrl: s.whisperBase };
+      const spec = await getSpec();
       const r = await fetch(`${API}/api/stt`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'x-stt-provider': btoa(JSON.stringify(spec)) }, body: all.buffer });
       const j = await r.json();
       if (!r.ok) throw new Error(j.message || `Speech-to-text failed (${r.status})`);
@@ -135,6 +135,16 @@ function whisper(s: Settings['listen'], ev: Events): Engine {
   };
 }
 
+// ── whisper.cpp on this PC: same utterance engine, pointed at the local server (no key, no Python) ──
+function local(s: Settings['listen'], ev: Events): Engine {
+  let base: Promise<string> | null = null;
+  const spec = async () => {
+    base ??= call<{ port: number }>('/api/whispercpp/start', { arch: s.size }).then((st) => `http://127.0.0.1:${st.port}/v1`).catch((e) => { base = null; throw e; });
+    return { baseUrl: await base };
+  };
+  return whisper(spec, ev);
+}
+
 export function createEngine(s: Settings['listen'], ev: Events): Engine {
-  return s.engine === 'moonshine' ? moonshine(s, ev) : s.engine === 'deepgram' ? deepgram(s, ev) : whisper(s, ev);
+  return s.engine === 'local' ? local(s, ev) : s.engine === 'moonshine' ? moonshine(s, ev) : s.engine === 'deepgram' ? deepgram(s, ev) : whisper(async () => ({ apiKey: s.keys.whisper, baseUrl: s.whisperBase }), ev);
 }
