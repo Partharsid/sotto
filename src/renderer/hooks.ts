@@ -3,7 +3,7 @@ import { friendly, streamAnswer, type Chat } from './api';
 import { openStream, tap, type Who } from './audio';
 import { context, systemPrompt } from './brain';
 import { createEngine, type Engine } from './engines';
-import { gated, isJunk, MIC_GATE, SYSTEM_GATE } from './gate';
+import { gated, joiner, MIC_GATE, SYSTEM_GATE } from './gate';
 import { useStore, type Source } from './store';
 
 // ── Listening ────────────────────────────────────────────────────────────────────────────────
@@ -44,9 +44,11 @@ export function useListen(onLine: (l: Line) => void, onProblem: (msg: string) =>
     for (const w of who) {
       try {
         const stream = await openStream(w, listen.micId ?? '', (m) => cb.current.onProblem(m), (id) => useStore.getState().patch('listen', { micId: id }));
+        const join = joiner((text) => cb.current.onLine({ id: ++lineId, who: w, text }));
+        stops.current.push(join.flush);
         const engine = createEngine(listen, {
           partial: (text) => setPartial((p) => (p[w] === text ? p : { ...p, [w]: text })),
-          final: (text) => { if (!isJunk(text)) cb.current.onLine({ id: ++lineId, who: w, text }); },
+          final: join.add,
           error: (e) => { if (!told) { told = true; cb.current.onProblem(e.message); } },
         });
         engines.current.push(engine);

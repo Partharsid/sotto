@@ -66,3 +66,29 @@ export function isJunk(text: string): boolean {
   if (words.length >= 4 && new Set(words).size <= Math.ceil(words.length / 4)) return true; // "the the the the"
   return false;
 }
+
+/**
+ * Glues the short pieces a speech engine returns (it cuts at every breath) back into whole sentences. A piece that
+ * ends a question goes out at once; anything else waits `hold` ms for the next piece, so one thought = one line.
+ * Returns `add(piece)` and `flush()` (call on stop).
+ */
+export function joiner(emit: (text: string) => void, hold = 1600, maxChars = 280) {
+  let pend = '';
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const flush = () => {
+    clearTimeout(timer);
+    const t = pend.trim();
+    pend = '';
+    if (t && !isJunk(t)) emit(t);
+  };
+  const add = (piece: string) => {
+    const t = piece.trim();
+    if (!t) return;
+    if (!pend && isJunk(t)) return; // a lone "Thank you." / "uh" made up from noise
+    pend = pend ? `${pend} ${t}` : t;
+    clearTimeout(timer);
+    if (/\?\s*$/.test(pend) || pend.length >= maxChars) flush();
+    else timer = setTimeout(flush, hold);
+  };
+  return { add, flush };
+}

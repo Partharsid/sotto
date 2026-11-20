@@ -95,7 +95,7 @@ function deepgram(s: Settings['listen'], ev: Events): Engine {
 
 // ── Whisper API (Groq, OpenAI, ...): cut speech into utterances, upload each one ──────────────
 function whisper(getSpec: () => Promise<{ apiKey?: string; baseUrl?: string }>, ev: Events): Engine {
-  const SPEECH = 0.012, SILENCE_MS = 550, MIN_MS = 300, MAX_MS = 20000;
+  const SPEECH = 0.012, SILENCE_MS = 900, MIN_MS = 350, MAX_MS = 25000;
   let buf: Int16Array[] = [];
   let pre: Int16Array[] = [];
   let speech = 0, silence = 0, total = 0, inSpeech = false;

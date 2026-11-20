@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7 – 2026-11-21
+
+- Fix: the transcript was full of short fragments. Sotto now waits for a real pause (0.9 s instead of 0.55 s) and glues the pieces of one thought into a single line; a finished question is sent immediately.
+
 ## 0.1.6 – 2026-11-21
 
 - New: pick your answer model. Settings > Answers > Load models fetches the list from your provider (OpenRouter, Gemini or any OpenAI-compatible API), with search and a free tag. Tick several and they race.

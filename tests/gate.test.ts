@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { gated, isJunk, MIC_GATE } from '../src/renderer/gate';
+import { gated, isJunk, joiner, MIC_GATE } from '../src/renderer/gate';
 
 const frame = (amp: number) => Int16Array.from({ length: 800 }, (_, i) => Math.round(Math.sin(i / 3) * amp * 32768));
 const peak = (f: Int16Array) => f.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
@@ -34,3 +34,19 @@ test('gate: keeps the lead-in and the tail of a sentence', () => {
 
 for (const t of ['', '.', 'Uh.', 'you', 'Thank you.', 'Thanks for watching!', '[music]', 'the the the the the', 'hmm mm']) test(`junk: drops ${JSON.stringify(t)}`, () => assert.equal(isJunk(t), true));
 for (const t of ['Tell me about yourself.', 'What is a closure in JavaScript?', 'I worked on Kubernetes']) test(`junk: keeps ${JSON.stringify(t)}`, () => assert.equal(isJunk(t), false));
+
+test('joiner: glues short pieces into one line and sends a finished question at once', async () => {
+  const out: string[] = [];
+  const j = joiner((t) => out.push(t), 40);
+  j.add('So I was thinking');
+  j.add('about the design');
+  j.add('of the cache');
+  assert.equal(out.length, 0);
+  await new Promise((r) => setTimeout(r, 90));
+  assert.deepEqual(out, ['So I was thinking about the design of the cache']);
+  j.add('Can you explain a closure?');
+  assert.equal(out.length, 2);
+  j.add('Thank you.'); // lone made-up phrase
+  j.flush();
+  assert.equal(out.length, 2);
+});
