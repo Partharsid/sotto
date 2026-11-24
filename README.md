@@ -82,3 +82,7 @@ Issues and pull requests are welcome. Keep it small: new features should earn th
 ## License
 
 [MIT](LICENSE). Speech models: Moonshine (MIT). The answer and speech providers you connect have their own terms.
+
+---
+
+Built by [Parth Arsid](https://partharsid.dev), edge AI and full-stack engineer.
